@@ -26,8 +26,10 @@ var game = new Phaser.Game(config);
 var piece_sprites = null;
 var last_response = null;
 var notation = "";
-const computer_player = 'O';
+let computer_player = 'O';
+let old_computer_player = 'X';
 let waiting_for_computer = false;
+let waiting_for_intro = true;
 
 function preload() {
     this.load.setBaseURL('.');
@@ -37,11 +39,18 @@ function preload() {
     this.load.spritesheet('buttons', 'assets/buttons.png', { frameWidth: 150, frameHeight: 54 });
 
     this.load.image('board', 'assets/board.png');
-    this.load.image('background', 'assets/ravenmap.png');
+    this.load.image('whitebackground', 'assets/wbackground.png');
+    this.load.image('blackbackground', 'assets/ravenmap.png');
+    this.load.image('introbackground', 'assets/introscreen.png');
 }
 
 function create() {
-    const boardImage = this.add.image(400, 300, 'background');
+    this.whiteBoard = this.add.image(400, 300, 'whitebackground');
+    this.whiteBoard.setVisible(false);
+    this.blackBoard = this.add.image(400, 300, 'blackbackground');
+    this.blackBoard.setVisible(false);
+    this.introscreen = this.add.image(400, 300, 'introbackground');
+    waiting_for_intro = true;
 
     // create an 8x8 array of sprites for the pieces. The sprites are 50x50 pixels
     piece_sprites = [];
@@ -51,11 +60,27 @@ function create() {
             piece_sprites[i][j] = this.add.sprite(82 + 62.75 * j, 70 + 62.75 * i, 'pieces');
             // frame is random number between 0 and 2
             piece_sprites[i][j].setFrame(Math.floor(Math.random() * 2));
-            piece_sprites[i][j].setVisible(true);
+            piece_sprites[i][j].setVisible(false);
         }
     }
 
     const button_base = 60;
+    const button_separation = 60;
+
+    this.play_button = this.add.sprite(400, 550, 'buttons');
+    this.play_button.setFrame(10);
+    this.play_button.setInteractive();
+
+    // on pointer up, set frame to 0
+    this.play_button.on('pointerup', function (pointer) {
+        // reset the game
+        notation = "";
+        // randomly choose X or O
+        computer_player = (Math.random() < 0.5) ? 'X' : 'O';
+        waiting_for_intro = false;
+        updateBoardFromBackEnd();
+    });
+
 
     // set a button with button sprite 0 at 700, 100
     this.new_game_button = this.add.sprite(675, button_base, 'buttons');
@@ -72,9 +97,10 @@ function create() {
         this.scene.new_game_button.setFrame(0);
         // reset the game
         notation = "";
+        computer_player = (computer_player === 'X') ? 'O' : 'X';
         updateBoardFromBackEnd();
     });
-    
+
     this.resign_button = this.add.sprite(675, button_base, 'buttons');
     this.resign_button.setFrame(5);
     this.resign_button.setInteractive();
@@ -98,68 +124,91 @@ function create() {
     });
 
     // game over button is frame 2 of buttons
-    this.game_over_button = this.add.sprite(675, button_base+75, 'buttons');
+    this.game_over_button = this.add.sprite(675, button_base + button_separation, 'buttons');
     this.game_over_button.setFrame(2);
     this.game_over_button.setVisible(false);
 
     // white won button is frame 3 of buttons
-    this.white_won_button = this.add.sprite(675, button_base+150, 'buttons');
+    this.white_won_button = this.add.sprite(675, button_base + button_separation * 2, 'buttons');
     this.white_won_button.setFrame(3);
     this.white_won_button.setVisible(false);
 
     // black won button is frame 4 of buttons
-    this.black_won_button = this.add.sprite(675, button_base+150, 'buttons');
+    this.black_won_button = this.add.sprite(675, button_base + button_separation * 2, 'buttons');
     this.black_won_button.setFrame(4);
     this.black_won_button.setVisible(false);
 
-    updateBoardFromBackEnd();
+    if (!waiting_for_intro) {
+        updateBoardFromBackEnd();
+    }
 
     // add an event listener to the boardImage to handle mouse clicks
-    boardImage.setInteractive();
-    boardImage.on('pointerdown', function (pointer) {
-        if (last_response.game_over) {
-            // make error sound and return
-            return;
-        }
+    this.whiteBoard.setInteractive();
+    this.whiteBoard.on('pointerdown', handle_board_click);
+    this.blackBoard.setInteractive();
+    this.blackBoard.on('pointerdown', handle_board_click);
+}
 
-        const current_player = last_response.current_player;
-        if (current_player === computer_player) {
-            // make error sound and return
-            return;
-        }
+function handle_board_click(pointer) {
+    if (last_response.game_over) {
+        // make error sound and return
+        return;
+    }
 
-        // get the x and y coordinates of the mouse click relative to the boardImage
-        const x = pointer.x - 55;
-        const y = pointer.y - 35;
+    const current_player = last_response.current_player;
+    if (current_player === computer_player) {
+        // make error sound and return
+        return;
+    }
 
-        // calculate the row and column of the mouse click
-        const row = Math.floor(y / 62.75);
-        const col = Math.floor(x / 62.75);
+    // get the x and y coordinates of the mouse click relative to the boardImage
+    const x = pointer.x - 55;
+    const y = pointer.y - 35;
 
-        // convert to notation. column is upper case letter if current_player is 'X', lower case letter if 'O', row is number, 1-based
+    // calculate the row and column of the mouse click
+    const row = Math.floor(y / 62.75);
+    const col = Math.floor(x / 62.75);
 
-        const notation_col = (current_player === 'X') ? String.fromCharCode(65 + col) : String.fromCharCode(97 + col);
-        const notation_row = (row + 1).toString();
-        const move_location = notation_col + notation_row;
+    // convert to notation. column is upper case letter if current_player is 'X', lower case letter if 'O', row is number, 1-based
 
-        // if last_response.valid_moves does not contain move_location, then make error sound and return    
-        if (!last_response.valid_moves.includes(move_location)) {
-            return;
-        }
+    const notation_col = (current_player === 'X') ? String.fromCharCode(65 + col) : String.fromCharCode(97 + col);
+    const notation_row = (row + 1).toString();
+    const move_location = notation_col + notation_row;
 
-        notation += move_location;
-        updateBoardFromBackEnd();
-    });
+    // if last_response.valid_moves does not contain move_location, then make error sound and return    
+    if (!last_response.valid_moves.includes(move_location)) {
+        return;
+    }
+
+    notation += move_location;
+    updateBoardFromBackEnd();
 }
 
 function update() {
+    this.introscreen.setVisible(waiting_for_intro);
+    if (!waiting_for_intro) {
+        this.introscreen.setVisible(false);
+        this.play_button.setVisible(false);
+        if (computer_player === 'X') {
+            this.whiteBoard.setVisible(false);
+            this.blackBoard.setVisible(true);
+        } else {
+            this.whiteBoard.setVisible(true);
+            this.blackBoard.setVisible(false);
+        }
+    }
+
+    if (notation !== "") {
+        this.resign_button.setVisible(true);
+    } else {
+        this.resign_button.setVisible(false);
+    }
+
     if (last_response === null) {
         return;
     }
 
-    if (!last_response.game_over && notation !== "") {
-        this.resign_button.setVisible(true);
-    } else {
+    if (last_response["game_over"]) {
         this.resign_button.setVisible(false);
     }
 
@@ -204,8 +253,8 @@ function updateBoard(response) {
         last_move_row = parseInt(last_two_upper.charAt(1)) - 1;
     }
     // update the board from the data
-    for (let y=0; y<8; y++) {
-        for (let x=0; x<8; x++) {
+    for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
             let frame_mod = 0;
             if (y == last_move_row && x == last_move_col) {
                 frame_mod = 2;
@@ -215,10 +264,10 @@ function updateBoard(response) {
             if (bp == ".") {
                 piece_sprites[y][x].setVisible(false);
             } else if (bp == 'X') {
-                piece_sprites[y][x].setFrame(1+frame_mod);
+                piece_sprites[y][x].setFrame(1 + frame_mod);
                 piece_sprites[y][x].setVisible(true);
             } else if (bp == 'O') {
-                piece_sprites[y][x].setFrame(0+frame_mod);
+                piece_sprites[y][x].setFrame(0 + frame_mod);
                 piece_sprites[y][x].setVisible(true);
             }
         }
@@ -232,7 +281,7 @@ function makeBestMove(response) {
         updateBoardFromBackEnd();
     }
 }
-    
+
 
 function findBestMoveFromBackEnd() {
     // make ajax call to get best move from back end using jQuery
@@ -241,7 +290,7 @@ function findBestMoveFromBackEnd() {
         url: back_end_url + 'othello',
         contentType: 'application/json',
         // add notation as a query parameter
-        data: {notation: notation, bestmove: 'True'}
+        data: { notation: notation, bestmove: 'True' }
     }).done(function (data) {
         // update the board from the data
         makeBestMove(data);
@@ -250,13 +299,13 @@ function findBestMoveFromBackEnd() {
 
 function updateBoardFromBackEnd() {
     // make ajax call to get board from back end using jQuery
-    
+
     $.ajax({
         type: 'GET',
         url: back_end_url + 'othello',
         contentType: 'application/json',
         // add notation as a query parameter
-        data: {notation: notation}
+        data: { notation: notation }
     }).done(function (data) {
         // update the board from the data
         updateBoard(data);
