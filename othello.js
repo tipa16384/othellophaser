@@ -238,10 +238,10 @@ function findBestMoveFromBackEnd() {
     // make ajax call to get best move from back end using jQuery
     $.ajax({
         type: 'GET',
-        url: back_end_url + 'othello/bestmove',
+        url: back_end_url + 'othello',
         contentType: 'application/json',
         // add notation as a query parameter
-        data: {notation: notation}
+        data: {notation: notation, bestmove: 'True'}
     }).done(function (data) {
         // update the board from the data
         makeBestMove(data);
