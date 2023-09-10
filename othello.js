@@ -33,38 +33,32 @@ function preload() {
     this.load.setBaseURL('.');
 
     // load sprite sheet asteroids_ship_map.png, 50x26 pixels per frame, 2 frames vertically stacked
-    this.load.spritesheet('asteroids_ship', 'assets/asteroids_ship_map.png', { frameWidth: 50, frameHeight: 26 });
-    this.load.spritesheet('rocks', 'assets/rocks.png', { frameWidth: 100, frameHeight: 101 });
     this.load.spritesheet('pieces', 'assets/pieces.png', { frameWidth: 50, frameHeight: 50 });
     this.load.spritesheet('buttons', 'assets/buttons.png', { frameWidth: 150, frameHeight: 54 });
 
-    this.load.image('laser', 'assets/laser.png');
-    this.load.image('title', 'assets/title.png');
-    this.load.audio("zzzzap", ["assets/laser.mp3"]);
-    this.load.audio("rocketsound", ["assets/rocketsound.mp3"]);
-    this.load.audio("explosion", ["assets/explosion.mp3"]);
-
     this.load.image('board', 'assets/board.png');
+    this.load.image('background', 'assets/ravenmap.png');
 }
 
 function create() {
-    const boardImage = this.add.image(290, 305, 'board');
-    const titleImage = this.add.image(676, 60, 'title');
+    const boardImage = this.add.image(400, 300, 'background');
 
     // create an 8x8 array of sprites for the pieces. The sprites are 50x50 pixels
     piece_sprites = [];
     for (let i = 0; i < 8; i++) {
         piece_sprites[i] = [];
         for (let j = 0; j < 8; j++) {
-            piece_sprites[i][j] = this.add.sprite(84 + 62.75 * j, 66 + 62.75 * i, 'pieces');
+            piece_sprites[i][j] = this.add.sprite(82 + 62.75 * j, 70 + 62.75 * i, 'pieces');
             // frame is random number between 0 and 2
             piece_sprites[i][j].setFrame(Math.floor(Math.random() * 2));
             piece_sprites[i][j].setVisible(true);
         }
     }
 
+    const button_base = 60;
+
     // set a button with button sprite 0 at 700, 100
-    this.new_game_button = this.add.sprite(675, 200, 'buttons');
+    this.new_game_button = this.add.sprite(675, button_base, 'buttons');
     this.new_game_button.setFrame(0);
     this.new_game_button.setInteractive();
     this.new_game_button.setVisible(false);
@@ -81,7 +75,7 @@ function create() {
         updateBoardFromBackEnd();
     });
     
-    this.resign_button = this.add.sprite(675, 200, 'buttons');
+    this.resign_button = this.add.sprite(675, button_base, 'buttons');
     this.resign_button.setFrame(5);
     this.resign_button.setInteractive();
     this.resign_button.setVisible(true);
@@ -104,17 +98,17 @@ function create() {
     });
 
     // game over button is frame 2 of buttons
-    this.game_over_button = this.add.sprite(675, 275, 'buttons');
+    this.game_over_button = this.add.sprite(675, button_base+75, 'buttons');
     this.game_over_button.setFrame(2);
     this.game_over_button.setVisible(false);
 
     // white won button is frame 3 of buttons
-    this.white_won_button = this.add.sprite(675, 350, 'buttons');
+    this.white_won_button = this.add.sprite(675, button_base+150, 'buttons');
     this.white_won_button.setFrame(3);
     this.white_won_button.setVisible(false);
 
     // black won button is frame 4 of buttons
-    this.black_won_button = this.add.sprite(675, 350, 'buttons');
+    this.black_won_button = this.add.sprite(675, button_base+150, 'buttons');
     this.black_won_button.setFrame(4);
     this.black_won_button.setVisible(false);
 
