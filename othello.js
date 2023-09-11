@@ -1,11 +1,10 @@
 const dwidth = 800;
 const dheight = 600;
-const numRocks = 5;
 
 const score_url = 'https://ifdero7svk.execute-api.us-east-1.amazonaws.com/test/high-scores';
 const back_end_url = "http://127.0.0.1:5000/"
 
-var config = {
+const config = {
     type: Phaser.AUTO,
     backgroundColor: '#afe9af',
     // scale to 740 px across
@@ -22,14 +21,15 @@ var config = {
     }
 };
 
-var game = new Phaser.Game(config);
-var piece_sprites = null;
-var last_response = null;
-var notation = "";
+const game = new Phaser.Game(config);
+let piece_sprites = null;
+let last_response = null;
+let notation = "";
 let computer_player = 'O';
 let old_computer_player = 'X';
 let waiting_for_computer = false;
 let waiting_for_intro = true;
+let opening_name = null;
 
 function preload() {
     this.load.setBaseURL('.');
@@ -51,6 +51,9 @@ function create() {
     this.blackBoard.setVisible(false);
     this.introscreen = this.add.image(400, 300, 'introbackground');
     waiting_for_intro = true;
+
+    // add text object to top middle of screen that displays the word "Opening" in white
+    this.openingText = this.add.text(300, 5, 'Opening', { fontFamily: 'Arial', fontSize: 24, color: '#000000' }).setOrigin(0.5, 0);
 
     // create an 8x8 array of sprites for the pieces. The sprites are 50x50 pixels
     piece_sprites = [];
@@ -74,13 +77,12 @@ function create() {
     // on pointer up, set frame to 0
     this.play_button.on('pointerup', function (pointer) {
         // reset the game
-        notation = "";
+        reset_game();
         // randomly choose X or O
         computer_player = (Math.random() < 0.5) ? 'X' : 'O';
         waiting_for_intro = false;
         updateBoardFromBackEnd();
     });
-
 
     // set a button with button sprite 0 at 700, 100
     this.new_game_button = this.add.sprite(675, button_base, 'buttons');
@@ -96,7 +98,7 @@ function create() {
     this.new_game_button.on('pointerup', function (pointer, currentlyOver) {
         this.scene.new_game_button.setFrame(0);
         // reset the game
-        notation = "";
+        reset_game();
         computer_player = (computer_player === 'X') ? 'O' : 'X';
         updateBoardFromBackEnd();
     });
@@ -186,6 +188,12 @@ function handle_board_click(pointer) {
 
 function update() {
     this.introscreen.setVisible(waiting_for_intro);
+
+    this.openingText.setVisible(!waiting_for_intro && opening_name !== null);
+    if (opening_name !== null) {
+        this.openingText.setText(opening_name);
+    }
+
     if (!waiting_for_intro) {
         this.introscreen.setVisible(false);
         this.play_button.setVisible(false);
@@ -276,12 +284,21 @@ function updateBoard(response) {
 
 function makeBestMove(response) {
     let best_move = response.best_move;
+
+    if (response.opening_name !== null) {
+        opening_name = response.opening_name;
+    }
+    
     if (best_move !== null) {
         notation += best_move;
         updateBoardFromBackEnd();
     }
 }
 
+function reset_game() {
+    notation = "";
+    opening_name = null;
+}
 
 function findBestMoveFromBackEnd() {
     // make ajax call to get best move from back end using jQuery
